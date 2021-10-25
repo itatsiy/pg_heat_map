@@ -1,0 +1,1 @@
+Run `test.sh` to install and test the extension.

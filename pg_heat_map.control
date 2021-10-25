@@ -1,0 +1,5 @@
+# pg_heat_map extension
+comment = 'PG Heat Map'
+default_version = '1.0'
+module_pathname = '$libdir/pg_heat_map'
+relocatable = true

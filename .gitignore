@@ -1,0 +1,9 @@
+.idea
+/utils
+/regression.*
+/fmgr.h
+/postgres.h
+/results
+*.o
+*.so
+/cmake-build-debug

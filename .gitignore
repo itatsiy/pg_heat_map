@@ -3,6 +3,7 @@
 /regression.*
 /fmgr.h
 /postgres.h
+/postgres_ext.h
 /results
 *.o
 *.so

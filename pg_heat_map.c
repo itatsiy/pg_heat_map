@@ -1,4 +1,5 @@
 #include "postgres.h"
+#include "postgres_ext.h"
 
 #include <limits.h>
 
@@ -22,11 +23,9 @@ typedef struct {
 } PrebuildDesc;
 
 typedef struct {
-    int * distributed;
+    Datum *array;
     int len;
-    int min;
-    int max;
-} DistributionDesc;
+} Result;
 
 PrebuildDesc
 defineMapLimits(Point *array, int size, float8 resolution) {
@@ -55,49 +54,53 @@ defineMapLimits(Point *array, int size, float8 resolution) {
     };
 }
 
-DistributionDesc
+Result
 distribute(Point *array, int size, float resolution, PrebuildDesc prebuildDesc) {
-    int resultArraySize = prebuildDesc.xBucketSize * prebuildDesc.yBucketSize;
-    int *result = (int *) palloc(resultArraySize * sizeof(int));
-    memset(result, 0, resultArraySize * sizeof(int));
+    int bucketsArrayLen = prebuildDesc.xBucketSize * prebuildDesc.yBucketSize;
+    int *buckets = (int *) palloc(bucketsArrayLen * sizeof(int));
+    memset(buckets, 0, bucketsArrayLen * sizeof(int));
+    int resultLen = 0;
     int max = 0;
-    int min = INT_MAX;
     int i;
     for (i = 0; i < size; i++) {
         Point value = *DatumGetPointP(&array[i]);
         int x = (value.x - prebuildDesc.xMin) / resolution;
         int y = (value.y - prebuildDesc.yMin) / resolution;
-        int current = ++result[y * prebuildDesc.yBucketSize + x];
+        int current = ++buckets[y * prebuildDesc.yBucketSize + x];
         if (max < current) {
             max = current;
         }
-        if (min > current) {
-            min = current;
+        if (current == 1) {
+            resultLen++;
         }
     }
-    return (DistributionDesc) {
-        .distributed = result,
-        .len = resultArraySize,
-        .min = min,
-        .max = max
-    };
-}
-
-Datum *
-normalize(DistributionDesc distributionDesc) {
-    Datum *result = (Datum *) palloc(distributionDesc.len * sizeof(Datum));
-    int i;
-    for (i = 0; i < distributionDesc.len; i++) {
-        int value = distributionDesc.distributed[i];
-        result[i] = Int32GetDatum(value);
+    resultLen *= 3;
+    Datum * result = (Datum *) palloc(resultLen * sizeof(Datum));
+    float8 level = max / 1.0;
+    int x = 0;
+    int y = 0;
+    i = 0;
+    float halfResolution = resolution / 2;
+    for (y = 0; y < prebuildDesc.yBucketSize; y++) {
+        int h = y * prebuildDesc.yBucketSize;
+        for (x = 0; x < prebuildDesc.xBucketSize; x++, h++) {
+            int value = buckets[h];
+            if (value != 0) {
+                result[i++] = Float8GetDatum(prebuildDesc.xMin + (x * resolution) + halfResolution);
+                result[i++] = Float8GetDatum(prebuildDesc.yMin + (y * resolution) + halfResolution);
+                result[i++] = Float8GetDatum(value / level);
+            }
+        }
     }
-    return result;
+    pfree(buckets);
+    return (Result) {
+            .array = result,
+            .len = resultLen
+    };
 }
 
 Datum
 build_heat_map(PG_FUNCTION_ARGS) {
-    ArrayType *result;
-    Datum *resultDatum;
     // Define input
     AnyArrayType *arg1AsArrayType = PG_GETARG_ANY_ARRAY_P(0);
     float8 resolution = PG_GETARG_FLOAT8(1);
@@ -106,7 +109,6 @@ build_heat_map(PG_FUNCTION_ARGS) {
     Point *array;
     int arraySize;
     PrebuildDesc prebuildDesc;
-    DistributionDesc distributionDesc;
 
     // Validation
     if (isinf(resolution) || AARR_NDIM(arg1AsArrayType) != 1)
@@ -116,15 +118,11 @@ build_heat_map(PG_FUNCTION_ARGS) {
         PG_RETURN_NULL();
 
     array = (Point *) ARR_DATA_PTR(&(arg1AsArrayType->flt));
-
     prebuildDesc = defineMapLimits(array, arraySize, resolution);
-
-    distributionDesc = distribute(array, arraySize, resolution, prebuildDesc);
-    resultDatum = normalize(distributionDesc);
+    Result result = distribute(array, arraySize, resolution, prebuildDesc);
     int16 typlen;
     bool typbyval;
     char typalign;
-    get_typlenbyvalalign(INT4OID, &typlen, &typbyval, &typalign);
-    result = construct_array(resultDatum, distributionDesc.len, INT4OID, typlen, typbyval, typalign);
-    PG_RETURN_ARRAYTYPE_P(result);
+    get_typlenbyvalalign(FLOAT8OID, &typlen, &typbyval, &typalign);
+    PG_RETURN_ARRAYTYPE_P(construct_array(result.array, result.len, FLOAT8OID, typlen, typbyval, typalign));
 }

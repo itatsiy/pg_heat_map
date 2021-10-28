@@ -1,12 +1,8 @@
 #include "postgres.h"
-#include "postgres_ext.h"
-
-#include <limits.h>
 
 #include "fmgr.h"
 #include "utils/builtins.h"
 #include "utils/geo_decls.h"
-#include "utils/array.h"
 #include "utils/arrayaccess.h"
 #include "utils/float.h"
 #include "utils/lsyscache.h"
@@ -47,5 +43,5 @@ heat_map_agg_func(PG_FUNCTION_ARGS) {
     if (array[0] < value) {
         array[0] = value;
     }
-    PG_RETURN_ARRAYTYPE_P(PG_GETARG_ARRAYTYPE_P(0));
+    PG_RETURN_ARRAYTYPE_P(result);
 }

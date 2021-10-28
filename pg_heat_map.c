@@ -40,12 +40,8 @@ heat_map_agg_func(PG_FUNCTION_ARGS) {
     }
     ArrayType *result = PG_GETARG_ARRAYTYPE_P(0);
     int * array = (int *) ARR_DATA_PTR(result);
-    float8 xDiff = b.high.x - b.low.x ;
-    float8 yDiff = b.low.y - b.high.y;
-    float8 xStep = xDiff / xBucket;
-    float8 yStep = yDiff / yBucket;
-    int xIndex = (x - b.low.x) / xStep;
-    int yIndex = (y - b.high.y) / yStep;
+    int xIndex = (x - b.low.x) / ((b.high.x - b.low.x) / xBucket);
+    int yIndex = (y - b.high.y) / ((b.low.y - b.high.y) / yBucket);
     int index = ((yIndex * yBucket) + xIndex) + 1;
     int value = ++array[index];
     if (array[0] < value) {

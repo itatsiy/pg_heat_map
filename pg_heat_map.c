@@ -57,8 +57,8 @@ int4_heat_map_agg_func(PG_FUNCTION_ARGS) {
     PG_RETURN_ARRAYTYPE_P(result);
 }
 
-static Datum
-*create_bitset(int len) {
+static Datum *
+create_bitset(int len) {
     Datum * result = malloc(len * sizeof(Datum));
     int i;
     for (i = 0; i < len; i++) {

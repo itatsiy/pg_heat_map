@@ -49,7 +49,7 @@ int4_heat_map_agg_func(PG_FUNCTION_ARGS) {
     int *array = (int *) ARR_DATA_PTR(result);
     int xIndex = (x - b.low.x) / (xDiff / xBucket);
     int yIndex = (y - b.low.y) / (yDiff / yBucket);
-    int index = ((yIndex * xBucket) + xIndex) + 1;
+    int index = ((yIndex * xBucket) + xIndex) + 2;
     int value = ++array[index];
     if (array[0] < value) {
         array[0] = value;

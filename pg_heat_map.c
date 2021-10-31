@@ -25,7 +25,7 @@ int4_heat_map_agg_func(PG_FUNCTION_ARGS) {
     int32 xBucket = PG_GETARG_INT32(4);
     int32 yBucket = PG_GETARG_INT32(5);
     if (PG_ARGISNULL(0)) {
-        int len = (xBucket * yBucket) + 1;
+        int len = (xBucket * yBucket) + 2;
         Datum * result = (Datum *) palloc(len * sizeof(Datum));
         int i;
         for (i = 0; i < len; i++) {
@@ -49,10 +49,13 @@ int4_heat_map_agg_func(PG_FUNCTION_ARGS) {
     int *array = (int *) ARR_DATA_PTR(result);
     int xIndex = (x - b.low.x) / (xDiff / xBucket);
     int yIndex = (y - b.low.y) / (yDiff / yBucket);
-    int index = ((yIndex * yBucket) + xIndex) + 1;
+    int index = ((yIndex * xBucket) + xIndex) + 1;
     int value = ++array[index];
     if (array[0] < value) {
         array[0] = value;
+    }
+    if (value == 1) {
+        array[1]++;
     }
     PG_RETURN_ARRAYTYPE_P(result);
 }
@@ -69,9 +72,10 @@ create_bitset(int len) {
 
 static void
 set_true(long *bitset, int bitIndex) {
-    int wordIndex = (bitIndex >> ADDRESS_BITS_PER_WORD);
+    int wordIndex = (bitIndex >> ADDRESS_BITS_PER_WORD) + 1;
     if ((bitset[wordIndex] & (1L << bitIndex)) == 0) {
-        bitset[wordIndex] |= (1L << bitIndex);
+        bitset[wordIndex] |= 1L << bitIndex;
+        bitset[0]++;
     }
 }
 
@@ -83,7 +87,7 @@ bitset_heat_map_agg_func(PG_FUNCTION_ARGS) {
     int32 xBucket = PG_GETARG_INT32(4);
     int32 yBucket = PG_GETARG_INT32(5);
     if (PG_ARGISNULL(0)) {
-        int len = ((xBucket * yBucket) >> ADDRESS_BITS_PER_WORD) + 1;
+        int len = ((xBucket * yBucket) >> ADDRESS_BITS_PER_WORD) + 2;
         Datum * result = create_bitset(len);
         int16 typlen;
         bool typbyval;
@@ -103,7 +107,7 @@ bitset_heat_map_agg_func(PG_FUNCTION_ARGS) {
     long *array = (long *) ARR_DATA_PTR(result);
     int xIndex = (x - b.low.x) / (xDiff / xBucket);
     int yIndex = (y - b.low.y) / (yDiff / yBucket);
-    int index = (yIndex * yBucket) + xIndex;
+    int index = (yIndex * xBucket) + xIndex;
     set_true(array, index);
     PG_RETURN_ARRAYTYPE_P(result);
 }

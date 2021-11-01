@@ -15,7 +15,7 @@ PG_FUNCTION_INFO_V1(bitset_heat_map_agg_func);
 
 
 const int ADDRESS_BITS_PER_WORD = 6;
-const int BITS_PER_WORD = 1 << ADDRESS_BITS_PER_WORD;
+int BITS_PER_WORD = 1 << ADDRESS_BITS_PER_WORD;
 
 Datum
 int4_heat_map_agg_func(PG_FUNCTION_ARGS) {

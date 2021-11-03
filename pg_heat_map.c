@@ -59,22 +59,11 @@ int4_heat_map_agg_func(PG_FUNCTION_ARGS) {
     PG_RETURN_ARRAYTYPE_P(result);
 }
 
-static Datum *
-create_bitset(int len) {
-    Datum * result = malloc(len * sizeof(Datum));
-    int i;
-    for (i = 0; i < len; i++) {
-        result[i] = Int64GetDatum(0);
-    }
-    return result;
-}
-
 static void
 set_true(long *bitset, int bitIndex) {
-    int wordIndex = (bitIndex >> ADDRESS_BITS_PER_WORD) + 1;
+    int wordIndex = bitIndex >> ADDRESS_BITS_PER_WORD;
     if ((bitset[wordIndex] & (1L << bitIndex)) == 0) {
         bitset[wordIndex] |= 1L << bitIndex;
-        bitset[0]++;
     }
 }
 
@@ -86,8 +75,12 @@ bitset_heat_map_agg_func(PG_FUNCTION_ARGS) {
     int32 xBucket = PG_GETARG_INT32(4);
     int32 yBucket = PG_GETARG_INT32(5);
     if (PG_ARGISNULL(0)) {
-        int len = ((xBucket * yBucket) >> ADDRESS_BITS_PER_WORD) + 2;
-        Datum * result = create_bitset(len);
+        int len = ((xBucket * yBucket) >> ADDRESS_BITS_PER_WORD) + 1;
+        Datum * result = malloc(len * sizeof(Datum));
+        int i;
+        for (i = 0; i < len; i++) {
+            result[i] = Int64GetDatum(0);
+        }
         int16 typlen;
         bool typbyval;
         char typalign;
